@@ -11,6 +11,7 @@ from argparse import ArgumentParser
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from typing import Any, Sized, Iterable
 
+from scoring_api.store import RedisStore, Storage
 from src.scoring_api.scoring import get_score, get_interests
 
 SALT = "Otus"
@@ -263,9 +264,14 @@ class OnlineScoreRequest(Request):
         context["has"] = has_fields
 
         score = get_score(
+            store=self.store,
             phone=self.phone,
             email=self.email,
-            birthday=self.birthday,
+            birthday=(
+                datetime.datetime.strptime(self.birthday, "%d.%m.%Y")
+                if self.birthday
+                else None
+            ),
             gender=self.gender,
             first_name=self.first_name,
             last_name=self.last_name,
@@ -332,7 +338,7 @@ def method_handler(request: dict, ctx: dict, store: Any) -> tuple:
 
 class MainHTTPHandler(BaseHTTPRequestHandler):
     router = {"method": method_handler}
-    store = None
+    store = Storage(RedisStore())
 
     def get_request_id(self, headers):
         return headers.get("HTTP_X_REQUEST_ID", uuid.uuid4().hex)
